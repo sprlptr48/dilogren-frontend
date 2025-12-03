@@ -126,6 +126,9 @@ class _ActiveWordSessionScreenState extends BaseChatScreenState<ActiveWordSessio
             ),
           );
         }
+
+        // Check for level change suggestion
+        await handleLevelChangeSuggestion(response);
       }
     } catch (e) {
       if (mounted) {

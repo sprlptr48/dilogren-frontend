@@ -556,6 +556,32 @@ class ApiService {
     }
   }
 
+  // 14. Update Level from Error Assessment
+  Future<UserProfile> updateLevel(String newLevel) async {
+    final url = Uri.parse('$baseUrl/errors/update-level');
+    print('🔵 [POST] Updating level to $newLevel at: $url');
+
+    try {
+      final response = await _client.post(
+        url,
+        headers: _getHeaders(),
+        body: jsonEncode({'new_level': newLevel}),
+      );
+
+      print('🟢 Response Status: ${response.statusCode}');
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return UserProfile.fromJson(body);
+      } else {
+        throw Exception(body['detail'] ?? 'Failed to update level');
+      }
+    } catch (e) {
+      print('🔴 Connection Error in updateLevel: $e');
+      throw Exception('Connection error: $e');
+    }
+  }
+
 
   void dispose() {
     _client.close();

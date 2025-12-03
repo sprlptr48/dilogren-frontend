@@ -368,12 +368,18 @@ class ErrorCheckResponse {
   final LevelAssessment? levelAssessment;
   final int errorCount;
   final int textLength;
+  final bool? levelChanged;
+  final String? currentLevel;
+  final String? suggestedLevel;
 
   ErrorCheckResponse({
     required this.errors,
     this.levelAssessment,
     required this.errorCount,
     required this.textLength,
+    this.levelChanged,
+    this.currentLevel,
+    this.suggestedLevel,
   });
 
   factory ErrorCheckResponse.fromJson(Map<String, dynamic> json) {
@@ -386,6 +392,9 @@ class ErrorCheckResponse {
           : null,
       errorCount: json['error_count'],
       textLength: json['text_length'],
+      levelChanged: json['level_changed'],
+      currentLevel: json['current_level'],
+      suggestedLevel: json['suggested_level'],
     );
   }
 }

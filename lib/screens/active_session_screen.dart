@@ -136,6 +136,9 @@ class _ActiveSessionScreenState extends BaseChatScreenState<ActiveSessionScreen>
             ),
           );
         }
+
+        // Check for level change suggestion
+        await handleLevelChangeSuggestion(response);
       }
     } catch (e) {
       if (mounted) {
