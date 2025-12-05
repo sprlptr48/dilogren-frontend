@@ -566,13 +566,17 @@ class ErrorStatsResponse {
   });
 
   factory ErrorStatsResponse.fromJson(Map<String, dynamic> json) {
+    // Handle 'by_type' which is a Map<String, int> from backend
+    final byTypeMap = json['by_type'] as Map<String, dynamic>? ?? {};
+    final errorsList = byTypeMap.entries
+        .map((e) => ErrorTypeCount(errorType: e.key, count: e.value as int))
+        .toList();
+
     return ErrorStatsResponse(
       totalErrors: json['total_errors'],
-      errorsByType: (json['errors_by_type'] as List)
-          .map((e) => ErrorTypeCount.fromJson(e))
-          .toList(),
-      mostRecentLevel: json['most_recent_level'] != null
-          ? LevelAssessment.fromJson(json['most_recent_level'])
+      errorsByType: errorsList,
+      mostRecentLevel: json['most_recent_assessment'] != null
+          ? LevelAssessment.fromJson(json['most_recent_assessment'])
           : null,
     );
   }

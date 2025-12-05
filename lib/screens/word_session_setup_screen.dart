@@ -56,6 +56,21 @@ class _WordSessionSetupScreenState extends State<WordSessionSetupScreen> {
 
       final session = await apiService.startWordSession(request);
 
+      // Fix for empty sessions (e.g. reused sessions without greetings):
+      if (session.history.isEmpty) {
+        final words = session.settings.words;
+        final wordPreview = words.length > 5 
+            ? "${words.take(5).join(', ')}... (+${words.length - 5} more)"
+            : words.join(', ');
+            
+        session.history.add(
+          ChatMessage(
+            role: 'assistant',
+            content: "Hello! Let's learn some new words today: **$wordPreview**. I'll help you understand and practice these. Ready?",
+          ),
+        );
+      }
+
       if (mounted) {
         Navigator.push(
           context,

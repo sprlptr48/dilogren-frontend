@@ -22,9 +22,9 @@ class AuthService with ChangeNotifier {
     _token = await _storage.read(key: _tokenKey);
     // On app start, if we have a token, we should try to get the user profile
     // For this project, we will force a re-login for simplicity.
-    if (_token != null) {
+    /*if (_token != null) {
       await logout();
-    }
+    }*/
     notifyListeners();
   }
 

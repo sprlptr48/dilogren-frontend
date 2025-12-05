@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../models/schemas.dart';
 import '../services/api_service.dart';
 import 'active_session_screen.dart';
+import 'active_word_session_screen.dart';
+import 'active_error_practice_screen.dart';
 
 class SessionListScreen extends StatefulWidget {
   const SessionListScreen({super.key});
@@ -273,11 +275,84 @@ class _SessionListScreenState extends State<SessionListScreen> {
                                 ),
                                 onTap: () async {
                                   // Navigate to session
-                                  if (conversation.conversationType == 'course') {
+                                  try {
                                     final apiService = Provider.of<ApiService>(context, listen: false);
+                                    
+                                    // Show loading indicator briefly if needed or just navigate (fetch happens in next screen often)
+                                    // But here we need details to decide arguments for some screens
                                     final conversationDetail = await apiService.getConversation(conversation.id);
 
-                                    if (mounted) {
+                                    if (!mounted) return;
+
+                                    if (conversation.conversationType == 'course') {
+                                      // Fix for empty sessions (e.g. reused sessions without greetings):
+                                      if (conversationDetail.messages.isEmpty) {
+                                          final courseName = conversationDetail.settings['course_name'] ?? 'Course';
+                                          conversationDetail.messages.add(
+                                            ChatMessage(
+                                              role: 'assistant',
+                                              content: "Hello! Welcome to your **$courseName** lesson. I'm your English teacher and I'll help you master this topic. Ready to begin?",
+                                            ),
+                                          );
+                                      }
+
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ActiveSessionScreen(
+                                            initialConversation: conversationDetail,
+                                          ),
+                                        ),
+                                      );
+                                    } else if (conversation.conversationType == 'word_learning') {
+                                      // Construct WordLearningSession from detail
+                                      final wordSession = WordLearningSession(
+                                        sessionId: conversationDetail.id,
+                                        settings: WordLearningSettings.fromJson(conversationDetail.settings),
+                                        history: conversationDetail.messages,
+                                      );
+
+                                      // Fix for empty sessions
+                                      if (wordSession.history.isEmpty) {
+                                          final words = wordSession.settings.words;
+                                          final wordPreview = words.length > 5 
+                                              ? "${words.take(5).join(', ')}... (+${words.length - 5} more)"
+                                              : words.join(', ');
+                                              
+                                          wordSession.history.add(
+                                            ChatMessage(
+                                              role: 'assistant',
+                                              content: "Hello! Let's learn some new words today: **$wordPreview**. I'll help you understand and practice these. Ready?",
+                                            ),
+                                          );
+                                      }
+                                      
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ActiveWordSessionScreen(session: wordSession),
+                                        ),
+                                      );
+                                    } else if (conversation.conversationType == 'error_practice') {
+                                      // Extract error practice details
+                                      // We might not have 'error_count' or 'focus_areas' explicitly in top-level settings if not saved carefully
+                                      // But let's assume they are stored in settings
+                                      final settings = conversationDetail.settings;
+                                      final errorCount = settings['error_count'] as int? ?? 0;
+                                      final focusAreas = (settings['focus_areas'] as List?)?.cast<String>() ?? [];
+                                      
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ActiveErrorPracticeScreen(
+                                            conversationId: conversationDetail.id,
+                                            errorCount: errorCount,
+                                            focusAreas: focusAreas,
+                                          ),
+                                        ),
+                                      );
+                                    } else {
+                                      // Fallback for old chats or other types
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
@@ -295,10 +370,12 @@ class _SessionListScreenState extends State<SessionListScreen> {
                                         ),
                                       );
                                     }
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Only course sessions can be reopened for now')),
-                                    );
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Failed to open session: $e')),
+                                      );
+                                    }
                                   }
                                 },
                               ),

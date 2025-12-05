@@ -45,10 +45,6 @@ class HomeScreen extends StatelessWidget {
                 );
               } else if (value == 'logout') {
                 await authService.logout();
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
-                );
               }
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[

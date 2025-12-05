@@ -18,21 +18,39 @@ class ActiveSessionScreen extends BaseChatScreen {
 
 class _ActiveSessionScreenState extends BaseChatScreenState<ActiveSessionScreen> {
   @override
-  List<ChatMessage> getInitialMessages() => [];
+  List<ChatMessage> getInitialMessages() {
+    if (widget.initialConversation is ConversationDetail) {
+      return (widget.initialConversation as ConversationDetail).messages;
+    }
+    return [];
+  }
 
   @override
-  bool shouldFetchHistory() => true;
+  bool shouldFetchHistory() {
+    if (widget.initialConversation is ConversationDetail) {
+      // If we already have the detail with messages (even if empty list), we rely on it.
+      // However, if the list is empty, it might mean we just haven't fetched it?
+      // No, ConversationDetail implies we fetched the details.
+      return false;
+    }
+    return true;
+  }
 
   @override
   Future<void> fetchConversationHistory() async {
+    // Double check just in case this is called manually
+    if (!shouldFetchHistory()) return;
+
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final conversationDetail = await apiService.getConversation(widget.initialConversation.id);
-      setState(() {
-        messages = conversationDetail.messages;
-        isLoadingHistory = false;
-      });
-      scrollToBottom();
+      if (mounted) {
+        setState(() {
+          messages = conversationDetail.messages;
+          isLoadingHistory = false;
+        });
+        scrollToBottom();
+      }
     } catch (e) {
       print('🔴 Failed to fetch history: $e');
       if (mounted) {

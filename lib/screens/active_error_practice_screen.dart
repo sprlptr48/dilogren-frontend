@@ -111,13 +111,16 @@ class _ActiveErrorPracticeScreenState extends BaseChatScreenState<ActiveErrorPra
   String getTitle() => 'Error Practice';
 
   @override
-  String? getSubtitle() => '${widget.errorCount} error${widget.errorCount != 1 ? 's' : ''} • ${widget.focusAreas.join(", ")}';
+  String? getSubtitle() => widget.focusAreas.isEmpty
+      ? '${widget.errorCount} error${widget.errorCount != 1 ? 's' : ''}'
+      : '${widget.errorCount} error${widget.errorCount != 1 ? 's' : ''} • ${widget.focusAreas.join(", ")}';
 
   @override
   List<Widget> getAppBarActions() => [];
 
   @override
   Widget? buildHeaderWidget() {
+    if (widget.focusAreas.isEmpty) return null;
     return ChatHeaderWidget(
       title: 'Practice Focus',
       icon: Icons.psychology_rounded,

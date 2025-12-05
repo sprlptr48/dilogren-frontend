@@ -149,7 +149,7 @@ class ApiService {
     }
   }
 
-  Future<Conversation> startCourseSession(CourseSessionStartRequest request) async {
+  Future<ConversationDetail> startCourseSession(CourseSessionStartRequest request) async {
     final url = Uri.parse('$baseUrl/session/start');
     print('🔵 [POST] Starting course session at: $url');
 
@@ -164,7 +164,7 @@ class ApiService {
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 201) {
-        return Conversation.fromJson(body);
+        return ConversationDetail.fromJson(body);
       } else {
         throw Exception(body['detail'] ?? 'Failed to start session');
       }
@@ -305,11 +305,7 @@ class ApiService {
       print('🟢 Response Status: ${response.statusCode}');
       final body = jsonDecode(response.body);
       
-      if (response.statusCode == 201) { // Backend returns 201
-        // Assuming the response body is directly the session object
-        // The backend returns a ConversationResponse, not a WordLearningSession
-        // This needs to be reconciled. For now, adapting to backend reality.
-        // Let's create a temporary WordLearningSession from the ConversationResponse
+      if (response.statusCode == 201) {
         return WordLearningSession(
             sessionId: body['id'],
             settings: WordLearningSettings(
@@ -317,7 +313,9 @@ class ApiService {
               level: CefrLevel.values.firstWhere((e) => e.name == body['settings']['level']),
               mode: body['settings']['mode'],
             ),
-            history: []
+            history: (body['messages'] as List?)
+                  ?.map((e) => ChatMessage.fromJson(e))
+                  .toList() ?? []
         );
       } else {
         throw Exception(body['detail'] ?? 'Failed to start word session');

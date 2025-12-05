@@ -33,6 +33,18 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
       );
       final conversation = await apiService.startCourseSession(request);
 
+      // Fix for empty sessions (e.g. reused sessions without greetings):
+      // If messages are empty, inject a local greeting so the user isn't staring at a blank screen.
+      if (conversation.messages.isEmpty) {
+        final courseName = course.name;
+        conversation.messages.add(
+          ChatMessage(
+            role: 'assistant',
+            content: "Hello! Welcome to your **$courseName** lesson. I'm your English teacher and I'll help you master this topic. Ready to begin?",
+          ),
+        );
+      }
+
       if (mounted) {
         Navigator.push(
           context,
