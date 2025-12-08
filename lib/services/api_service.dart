@@ -226,6 +226,9 @@ class ApiService {
             yield {'type': 'status', 'content': data['status']};
           } else if (data.containsKey('chunk')) {
             yield {'type': 'chunk', 'content': data['chunk']};
+          } else if (data.containsKey('tool_calls')) {
+            // Navigation tool calls from adaptive chat
+            yield {'type': 'tool_calls', 'content': data['tool_calls']};
           }
         } catch (parseError) {
           print('⚠️ JSON Parse Error on line: "$line" - Error: $parseError');

@@ -27,6 +27,10 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
   bool isListening = false;
   bool isSttSupported = true;
   String? currentLocaleId;
+  
+  // Track analyzed messages to avoid re-analyzing
+  int _lastAnalyzedMessageCount = 0;
+  bool _enableAutoErrorCheckOnExit = false;
   String initialTextBeforeStt = '';
 
   // Performance: Throttle UI updates during streaming
@@ -62,6 +66,15 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
 
   @override
   void dispose() {
+    // Fire-and-forget error check on exit if enabled and enough new messages
+    if (_enableAutoErrorCheckOnExit) {
+      final userMessageCount = messages.where((m) => m.role == 'user').length;
+      final newMessagesCount = userMessageCount - _lastAnalyzedMessageCount;
+      if (newMessagesCount >= 10) {
+        _triggerExitErrorCheck();
+      }
+    }
+    
     _updateThrottleTimer?.cancel();
     _scrollDebounceTimer?.cancel();
     textController.dispose();
@@ -274,8 +287,14 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
   void sendBaseMessage({
   required String message,
   required Stream<Map<String, dynamic>> Function(String msg) sendApiCall, 
-  String Function(String status)? statusMessageBuilder 
+  String Function(String status)? statusMessageBuilder,
+  void Function(List<dynamic> toolCalls)? onToolCalls,
+  bool enableAutoErrorCheckOnExit = false,
 }) {
+  // Enable auto error check on exit if requested
+  if (enableAutoErrorCheckOnExit) {
+    _enableAutoErrorCheckOnExit = true;
+  }
   if (message.isEmpty || isStreaming) return;
 
   textController.clear();
@@ -320,6 +339,13 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
           }
         });
       }
+      else if (event['type'] == 'tool_calls') {
+        // Handle navigation tool calls from adaptive chat
+        if (onToolCalls != null) {
+          onToolCalls(event['content'] as List<dynamic>);
+        }
+      }
+
     },
     onError: (e) {
       _cancelThrottleTimer();
@@ -361,6 +387,39 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
     });
   }
 
+  /// Fire-and-forget error check on exit - only analyzes NEW messages
+  /// This runs when user leaves the chat, doesn't block, and we don't care about response
+  void _triggerExitErrorCheck() {
+    // Get only the messages that haven't been analyzed yet
+    final userMessages = messages.where((m) => m.role == 'user').toList();
+    
+    if (userMessages.length <= _lastAnalyzedMessageCount) return;
+    
+    // Get only new messages (skip already analyzed ones)
+    final newMessages = userMessages.skip(_lastAnalyzedMessageCount).map((m) => m.content).join('\n\n');
+    
+    if (newMessages.isEmpty) return;
+    
+    // Fire and forget - we don't await or care about response
+    // The backend will save errors to DB which is all we need
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final request = ErrorCheckRequest(text: newMessages);
+      
+      // Fire and forget - don't await
+      apiService.checkErrors(request).then((_) {
+        print('✅ Exit error check completed');
+      }).catchError((e) {
+        print('🔴 Exit error check failed (non-blocking): $e');
+      });
+      
+      // Update the count so we don't re-analyze if they come back
+      _lastAnalyzedMessageCount = userMessages.length;
+    } catch (e) {
+      // Silent failure - user is leaving anyway
+      print('🔴 Exit error check setup failed: $e');
+    }
+  }
 
   Future<void> checkAllMessagesCommon() async {
     setState(() => isCheckingErrors = true);
@@ -396,6 +455,9 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
             ),
           );
         }
+        
+        // Update the analyzed count so we don't re-analyze on exit
+        _lastAnalyzedMessageCount = messages.where((m) => m.role == 'user').length;
 
         await handleLevelChangeSuggestion(response);
       }
