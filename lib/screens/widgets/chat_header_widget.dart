@@ -6,6 +6,7 @@ class ChatHeaderWidget extends StatelessWidget {
   final Color primaryColor;
   final List<String> items;
   final Widget Function(BuildContext, String) itemBuilder;
+  final Function(String)? onItemTap; // Optional tap handler
 
   const ChatHeaderWidget({
     super.key,
@@ -14,6 +15,7 @@ class ChatHeaderWidget extends StatelessWidget {
     required this.primaryColor,
     required this.items,
     required this.itemBuilder,
+    this.onItemTap,
   });
 
   @override
@@ -57,7 +59,16 @@ class ChatHeaderWidget extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: items.map((item) => itemBuilder(context, item)).toList(),
+            children: items.map((item) {
+              final widget = itemBuilder(context, item);
+              if (onItemTap != null) {
+                return GestureDetector(
+                  onTap: () => onItemTap!(item),
+                  child: widget,
+                );
+              }
+              return widget;
+            }).toList(),
           ),
         ],
       ),

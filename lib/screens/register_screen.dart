@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../models/schemas.dart';
+import 'widgets/labeled_text_field.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -53,10 +54,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         cefrLevel: _selectedLevel,
       );
 
-      // ApiService now handles the entire flow
       await apiService.register(registerRequest);
-
-      // The auth state is now updated, the AuthWrapper will handle navigation
       
     } catch (e) {
       if (mounted) {
@@ -111,31 +109,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 40),
                   
-                  _buildInputField(
+                  LabeledTextField(
                     controller: _emailController,
                     label: 'Email',
                     icon: Icons.email_outlined,
-                    inputType: TextInputType.emailAddress,
-                    autofillHints: [AutofillHints.email],
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.email],
                     validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
                   ),
                   const SizedBox(height: 16),
                   
-                  _buildInputField(
+                  LabeledTextField(
                     controller: _usernameController,
                     label: 'Username',
                     icon: Icons.person_outline,
-                    autofillHints: [AutofillHints.username],
+                    autofillHints: const [AutofillHints.username],
                     validator: (v) => (v == null || v.length < 3) ? 'Username must be at least 3 characters' : null,
                   ),
                   const SizedBox(height: 16),
 
-                  _buildInputField(
+                  LabeledTextField(
                     controller: _passwordController,
                     label: 'Password',
                     icon: Icons.lock_outline,
                     obscureText: _obscurePassword,
-                    autofillHints: [AutofillHints.newPassword],
+                    autofillHints: const [AutofillHints.newPassword],
                     suffixIcon: IconButton(
                        icon: Icon(
                         _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
@@ -150,11 +148,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  _buildInputField(
+                  LabeledTextField(
                     controller: _fullNameController,
                     label: 'Full Name (Optional)',
                     icon: Icons.badge_outlined,
-                    autofillHints: [AutofillHints.name],
+                    autofillHints: const [AutofillHints.name],
                   ),
                   const SizedBox(height: 16),
                   
@@ -203,44 +201,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildInputField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    TextInputType? inputType,
-    bool obscureText = false,
-    List<String>? autofillHints,
-    Widget? suffixIcon,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        TextFormField(
-          controller: controller,
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon),
-            suffixIcon: suffixIcon,
-          ),
-          keyboardType: inputType,
-          obscureText: obscureText,
-          autofillHints: autofillHints,
-          validator: validator,
-        ),
-      ],
     );
   }
 }

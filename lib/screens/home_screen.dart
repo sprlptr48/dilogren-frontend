@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
-import '../screens/login_screen.dart';
 import '../theme/app_theme.dart';
+import '../utils/navigation_helpers.dart';
 import 'session_setup_screen.dart';
 import 'word_session_setup_screen.dart';
 import 'error_checker_screen.dart';
@@ -12,6 +12,7 @@ import 'active_error_practice_screen.dart';
 import 'session_list_screen.dart';
 import 'error_stats_screen.dart';
 import 'user_profile_screen.dart';
+import 'active_adaptive_chat_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -29,66 +30,21 @@ class HomeScreen extends StatelessWidget {
           PopupMenuButton<String>(
             onSelected: (value) async {
               if (value == 'profile') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const UserProfileScreen()),
-                );
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()));
               } else if (value == 'sessions') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SessionListScreen()),
-                );
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const SessionListScreen()));
               } else if (value == 'stats') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ErrorStatsScreen()),
-                );
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const ErrorStatsScreen()));
               } else if (value == 'logout') {
                 await authService.logout();
               }
             },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person_outline),
-                    SizedBox(width: 8),
-                    Text('Profile'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'sessions',
-                child: Row(
-                  children: [
-                    Icon(Icons.history),
-                    SizedBox(width: 8),
-                    Text('My Sessions'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'stats',
-                child: Row(
-                  children: [
-                    Icon(Icons.analytics_outlined),
-                    SizedBox(width: 8),
-                    Text('Error Stats'),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem<String>(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Logout'),
-                  ],
-                ),
-              ),
+            itemBuilder: (_) => const <PopupMenuEntry<String>>[
+              PopupMenuItem(value: 'profile', child: Row(children: [Icon(Icons.person_outline), SizedBox(width: 8), Text('Profile')])),
+              PopupMenuItem(value: 'sessions', child: Row(children: [Icon(Icons.history), SizedBox(width: 8), Text('My Sessions')])),
+              PopupMenuItem(value: 'stats', child: Row(children: [Icon(Icons.analytics_outlined), SizedBox(width: 8), Text('Error Stats')])),
+              PopupMenuDivider(),
+              PopupMenuItem(value: 'logout', child: Row(children: [Icon(Icons.logout, color: Colors.red), SizedBox(width: 8), Text('Logout')])),
             ],
           ),
         ],
@@ -117,218 +73,74 @@ class HomeScreen extends StatelessWidget {
               Text(
                 'Your AI-Powered Language Practice Partner',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                  height: 1.5,
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.grey[600], height: 1.5),
               ),
               
               const SizedBox(height: 32),
                             
-              // Start Conversation Button
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const SessionSetupScreen(),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  backgroundColor: AppTheme.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.chat_bubble_outline_rounded),
-                    SizedBox(width: 12),
-                    Text(
-                      'Browse Courses',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+              // Adaptive Chat Button (Primary)
+              _buildAdaptiveChatButton(context),
+
+              const SizedBox(height: 24),
+              
+              // Divider for other options
+              _buildSectionDivider('SPECIFIC MODES'),
+
+              const SizedBox(height: 24),
+
+              // Browse Courses Button
+              _buildActionButton(
+                context: context,
+                label: 'Browse Courses',
+                icon: Icons.chat_bubble_outline_rounded,
+                color: AppTheme.primary,
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SessionSetupScreen())),
               ),
               
               const SizedBox(height: 12),
 
               // Learn Words Button
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const WordSessionSetupScreen(),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  backgroundColor: AppTheme.accent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.school_rounded),
-                    SizedBox(width: 12),
-                    Text(
-                      'Learn Words',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+              _buildActionButton(
+                context: context,
+                label: 'Learn Words',
+                icon: Icons.school_rounded,
+                color: AppTheme.accent,
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WordSessionSetupScreen())),
               ),
               
               const SizedBox(height: 12),
 
               // Practice Your Mistakes Button
-              ElevatedButton(
-                onPressed: () async {
-                  final apiService = Provider.of<ApiService>(context, listen: false);
-
-                  try {
-                    // Show loading indicator
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (context) => const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                    );
-
-                    // Start error practice session
-                    final response = await apiService.startErrorPractice();
-
-                    // Close loading dialog
-                    if (context.mounted) Navigator.of(context).pop();
-
-                    // Navigate to error practice screen
-                    if (context.mounted) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ActiveErrorPracticeScreen(
-                            conversationId: response.sessionId,
-                            errorCount: response.errorCount,
-                            focusAreas: response.focusAreas,
-                          ),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    // Close loading dialog if open
-                    if (context.mounted) Navigator.of(context).pop();
-
-                    // Show error message
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(e.toString().contains('No past errors')
-                              ? 'No errors found yet! Check some text first.'
-                              : 'Failed to start practice: ${e.toString()}'),
-                          backgroundColor: Colors.orange,
-                          duration: const Duration(seconds: 3),
-                        ),
-                      );
-                    }
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  backgroundColor: Colors.deepOrange,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.psychology_rounded),
-                    SizedBox(width: 12),
-                    Text(
-                      'Practice Your Mistakes',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+              _buildActionButton(
+                context: context,
+                label: 'Practice Your Mistakes',
+                icon: Icons.psychology_rounded,
+                color: Colors.deepOrange,
+                onTap: () => _startErrorPractice(context),
               ),
 
               const SizedBox(height: 12),
 
-              // Error Tools Buttons
+              // Error Tools Row
               Row(
                 children: [
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ErrorCheckerScreen(),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        backgroundColor: Colors.orange,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check_circle_outline),
-                          SizedBox(width: 8),
-                          Text('Check Text'),
-                        ],
-                      ),
+                    child: _buildCompactButton(
+                      context: context,
+                      label: 'Check Text',
+                      icon: Icons.check_circle_outline,
+                      color: Colors.orange,
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ErrorCheckerScreen())),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ErrorHistoryScreen(),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        backgroundColor: Colors.blueGrey,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.history),
-                          SizedBox(width: 8),
-                          Text('History'),
-                        ],
-                      ),
+                    child: _buildCompactButton(
+                      context: context,
+                      label: 'History',
+                      icon: Icons.history,
+                      color: Colors.blueGrey,
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ErrorHistoryScreen())),
                     ),
                   ),
                 ],
@@ -339,6 +151,141 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAdaptiveChatButton(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6A1B9A), Color(0xFFAB47BC)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(color: Colors.purple.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 6)),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _startAdaptiveChat(context),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              children: [
+                const Icon(Icons.auto_awesome, size: 48, color: Colors.white),
+                const SizedBox(height: 12),
+                const Text(
+                  'Dil Öğretmen',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Practice everything in one place.\nContext-aware AI companion.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.9)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionDivider(String label) {
+    return Row(
+      children: [
+        const Expanded(child: Divider()),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            label,
+            style: TextStyle(color: Colors.grey[500], fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+          ),
+        ),
+        const Expanded(child: Divider()),
+      ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required BuildContext context,
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        backgroundColor: color,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon),
+          const SizedBox(width: 12),
+          Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactButton({
+    required BuildContext context,
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        backgroundColor: color,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon),
+          const SizedBox(width: 8),
+          Text(label),
+        ],
+      ),
+    );
+  }
+
+  void _startAdaptiveChat(BuildContext context) {
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    runWithLoadingDialog(
+      context: context,
+      task: () => apiService.startAdaptiveSession(),
+      screenBuilder: (session) => ActiveAdaptiveChatScreen(
+        conversationId: session.id,
+        initialMessages: session.messages,
+      ),
+      errorPrefix: 'Failed to start chat',
+    );
+  }
+
+  void _startErrorPractice(BuildContext context) {
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    runWithLoadingDialog(
+      context: context,
+      task: () => apiService.startErrorPractice(),
+      screenBuilder: (response) => ActiveErrorPracticeScreen(
+        conversationId: response.sessionId,
+        errorCount: response.errorCount,
+        focusAreas: response.focusAreas,
+      ),
+      errorPrefix: 'Failed to start practice',
     );
   }
 }

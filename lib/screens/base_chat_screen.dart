@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -28,6 +29,11 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
   String? currentLocaleId;
   String initialTextBeforeStt = '';
 
+  // Performance: Throttle UI updates during streaming
+  Timer? _updateThrottleTimer;
+  bool _hasPendingUpdate = false;
+  static const _updateThrottleDuration = Duration(milliseconds: 50);
+
   late AnimationController micAnimationController;
   late Animation<double> micAnimation;
 
@@ -56,6 +62,8 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
 
   @override
   void dispose() {
+    _updateThrottleTimer?.cancel();
+    _scrollDebounceTimer?.cancel();
     textController.dispose();
     scrollController.dispose();
     speechToText.cancel();
@@ -65,7 +73,7 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
 
   void initSpeech() async {
     if (Platform.isWindows) {
-      setState(() => isSttSupported = false);
+      if (mounted) setState(() => isSttSupported = false);
       return;
     }
     sttAvailable = await speechToText.initialize(
@@ -94,7 +102,7 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
         orElse: () => locales.first,
       ).localeId;
     }
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   void startListening() async {
@@ -237,6 +245,176 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
     }
   }
 
+  // --- Shared Logic ---
+
+  Future<void> fetchBaseConversationHistory(String conversationId) async {
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final conversationDetail = await apiService.getConversation(conversationId);
+      if (mounted) {
+        setState(() {
+          messages = conversationDetail.messages;
+          isLoadingHistory = false;
+        });
+        scrollToBottom();
+      }
+    } catch (e) {
+      print('🔴 Failed to fetch history: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load history: ${e.toString()}')),
+        );
+        setState(() {
+          isLoadingHistory = false;
+        });
+      }
+    }
+  }
+
+  void sendBaseMessage({
+  required String message,
+  required Stream<Map<String, dynamic>> Function(String msg) sendApiCall, 
+  String Function(String status)? statusMessageBuilder 
+}) {
+  if (message.isEmpty || isStreaming) return;
+
+  textController.clear();
+
+  setState(() {
+    messages.add(ChatMessage(role: 'user', content: message));
+    isStreaming = true;
+    currentStreamBuffer = '';
+    loadingStatus = 'Connecting...';
+  });
+
+  scrollToBottom();
+
+  sendApiCall(message).listen(
+    (event) {
+      if (!mounted) return;
+      
+      // Update state without triggering rebuild immediately
+      if (event['type'] == 'status') {
+         final statusContent = event['content'];
+         if (statusMessageBuilder != null) {
+           loadingStatus = statusMessageBuilder(statusContent);
+         } else {
+           loadingStatus = statusContent == 'queued'
+              ? 'Waiting in Queue...'
+              : 'Processing...';
+         }
+         // Status changes are important - update immediately
+         setState(() {});
+      }
+      else if (event['type'] == 'chunk') {
+        loadingStatus = 'Typing...';
+        currentStreamBuffer += event['content'];
+        
+        // Throttle chunk updates: mark that we need an update
+        _hasPendingUpdate = true;
+        _updateThrottleTimer ??= Timer.periodic(_updateThrottleDuration, (_) {
+          if (_hasPendingUpdate && mounted) {
+            _hasPendingUpdate = false;
+            setState(() {});
+            _scheduleScrollToBottom();
+          }
+        });
+      }
+    },
+    onError: (e) {
+      _cancelThrottleTimer();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+      setState(() => isStreaming = false);
+    },
+    onDone: () {
+      _cancelThrottleTimer();
+      if (!mounted) return;
+      setState(() {
+        if (currentStreamBuffer.isNotEmpty) {
+          messages.add(ChatMessage(
+              role: 'assistant', content: currentStreamBuffer));
+        }
+        currentStreamBuffer = '';
+        loadingStatus = '';
+        isStreaming = false;
+      });
+      scrollToBottom();
+    },
+  );
+}
+
+  void _cancelThrottleTimer() {
+    _updateThrottleTimer?.cancel();
+    _updateThrottleTimer = null;
+    _hasPendingUpdate = false;
+  }
+
+  // Debounced scroll to avoid excessive scrolling during streaming
+  Timer? _scrollDebounceTimer;
+  void _scheduleScrollToBottom() {
+    _scrollDebounceTimer?.cancel();
+    _scrollDebounceTimer = Timer(const Duration(milliseconds: 100), () {
+      scrollToBottom();
+    });
+  }
+
+
+  Future<void> checkAllMessagesCommon() async {
+    setState(() => isCheckingErrors = true);
+
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    final userMessages = messages.where((m) => m.role == 'user').map((m) => m.content).join('\n\n');
+
+    if (userMessages.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No messages to check yet!')),
+      );
+      setState(() => isCheckingErrors = false);
+      return;
+    }
+
+    try {
+      final request = ErrorCheckRequest(text: userMessages);
+      final response = await apiService.checkErrors(request);
+
+      if (mounted) {
+        if (response.errorCount == 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No errors found. Great job!'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${response.errorCount} errors found and saved to your history.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+
+        await handleLevelChangeSuggestion(response);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error checking messages: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isCheckingErrors = false);
+      }
+    }
+  }
+
   // Abstract methods to be implemented by subclasses
   List<ChatMessage> getInitialMessages();
   bool shouldFetchHistory();
@@ -250,6 +428,9 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
 
   @override
   Widget build(BuildContext context) {
+    // Cache header widget to avoid calling twice
+    final headerWidget = buildHeaderWidget();
+    
     return Scaffold(
       appBar: AppBar(
         title: getSubtitle() != null
@@ -268,7 +449,7 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
       ),
       body: Column(
         children: [
-          if (buildHeaderWidget() != null) buildHeaderWidget()!,
+          if (headerWidget != null) headerWidget,
           Expanded(
             child: isLoadingHistory
                 ? const Center(child: CircularProgressIndicator())
@@ -276,6 +457,9 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
                     controller: scrollController,
                     padding: const EdgeInsets.all(16),
                     itemCount: messages.length + (isStreaming ? 1 : 0),
+                    // Performance optimizations
+                    addAutomaticKeepAlives: false,
+                    addRepaintBoundaries: true,
                     itemBuilder: (context, index) {
                       if (isStreaming && index == messages.length) {
                         return buildMessageBubble(

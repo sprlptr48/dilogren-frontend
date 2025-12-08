@@ -3,7 +3,8 @@ import 'package:provider/provider.dart';
 import '../models/schemas.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
-import 'active_session_screen.dart'; // Will be updated later
+import 'active_session_screen.dart';
+import 'widgets/async_data_view.dart';
 
 class SessionSetupScreen extends StatefulWidget {
   const SessionSetupScreen({super.key});
@@ -33,8 +34,7 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
       );
       final conversation = await apiService.startCourseSession(request);
 
-      // Fix for empty sessions (e.g. reused sessions without greetings):
-      // If messages are empty, inject a local greeting so the user isn't staring at a blank screen.
+      // Fix for empty sessions
       if (conversation.messages.isEmpty) {
         final courseName = course.name;
         conversation.messages.add(
@@ -49,9 +49,7 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ActiveSessionScreen(
-              initialConversation: conversation,
-            ),
+            builder: (_) => ActiveSessionScreen(initialConversation: conversation),
           ),
         );
       }
@@ -68,37 +66,27 @@ class _SessionSetupScreenState extends State<SessionSetupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Browse Courses')),
-      body: FutureBuilder<List<Course>>(
+      body: AsyncDataView<List<Course>>(
         future: _coursesFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No courses available.'));
-          }
-
-          final courses = snapshot.data!;
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: courses.length,
-            itemBuilder: (context, index) {
-              final course = courses[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  title: Text(course.name),
-                  subtitle: Text(course.description ?? ''),
-                  leading: CircleAvatar(
-                    child: Text(course.recommendedLevel.name),
-                  ),
-                  onTap: () => _startSession(course),
-                ),
-              );
-            },
-          );
-        },
+        isEmpty: (data) => data.isEmpty,
+        emptyMessage: 'No courses available.',
+        emptyIcon: Icons.school_outlined,
+        builder: (courses) => ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: courses.length,
+          itemBuilder: (context, index) {
+            final course = courses[index];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                title: Text(course.name),
+                subtitle: Text(course.description ?? ''),
+                leading: CircleAvatar(child: Text(course.recommendedLevel.name)),
+                onTap: () => _startSession(course),
+              ),
+            );
+          },
+        ),
       ),
     );
   }

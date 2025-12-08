@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import 'register_screen.dart';
+import 'widgets/labeled_text_field.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,7 +30,6 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Trigger autofill save
     TextInput.finishAutofillContext();
 
     setState(() {
@@ -44,7 +44,6 @@ class _LoginScreenState extends State<LoginScreen> {
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
-      // AuthWrapper will handle navigation
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -97,13 +96,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 48),
 
-                  _buildInputField(
+                  LabeledTextField(
                     controller: _emailController,
                     label: 'Email Address',
                     hint: 'hello@example.com',
                     icon: Icons.email_outlined,
-                    inputType: TextInputType.emailAddress,
-                    autofillHints: [AutofillHints.email],
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.email],
                     validator: (value) {
                        if (value == null || value.isEmpty || !value.contains('@')) {
                         return 'Please enter a valid email';
@@ -113,13 +112,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  _buildInputField(
+                  LabeledTextField(
                     controller: _passwordController,
                     label: 'Password',
                     hint: '••••••••',
                     icon: Icons.lock_outline,
                     obscureText: _obscurePassword,
-                    autofillHints: [AutofillHints.password],
+                    autofillHints: const [AutofillHints.password],
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
@@ -199,46 +198,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildInputField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    TextInputType? inputType,
-    bool obscureText = false,
-    List<String>? autofillHints,
-    Widget? suffixIcon,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        TextFormField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(icon),
-            suffixIcon: suffixIcon,
-          ),
-          keyboardType: inputType,
-          obscureText: obscureText,
-          autofillHints: autofillHints,
-          validator: validator,
-        ),
-      ],
     );
   }
 }

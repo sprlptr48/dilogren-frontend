@@ -4,6 +4,7 @@ import '../models/schemas.dart';
 import '../services/api_service.dart';
 import 'base_chat_screen.dart';
 import 'widgets/chat_header_widget.dart';
+import 'widgets/check_errors_action.dart';
 
 class ActiveErrorPracticeScreen extends BaseChatScreen {
   final String conversationId;
@@ -30,80 +31,17 @@ class _ActiveErrorPracticeScreenState extends BaseChatScreenState<ActiveErrorPra
 
   @override
   Future<void> fetchConversationHistory() async {
-    try {
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      final conversationDetail = await apiService.getConversation(widget.conversationId);
-      setState(() {
-        messages = conversationDetail.messages;
-        isLoadingHistory = false;
-      });
-      scrollToBottom();
-    } catch (e) {
-      print('🔴 Failed to fetch error practice history: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load history: ${e.toString()}')),
-        );
-        setState(() {
-          isLoadingHistory = false;
-        });
-      }
-    }
+    await fetchBaseConversationHistory(widget.conversationId);
   }
 
   @override
   void sendMessage() {
-    final text = textController.text.trim();
-    if (text.isEmpty || isStreaming) return;
-
     final apiService = Provider.of<ApiService>(context, listen: false);
-    textController.clear();
+    final text = textController.text.trim();
 
-    setState(() {
-      messages.add(ChatMessage(role: 'user', content: text));
-      isStreaming = true;
-      currentStreamBuffer = '';
-      loadingStatus = 'Connecting...';
-    });
-
-    scrollToBottom();
-
-    apiService.sendMessage(widget.conversationId, text).listen(
-      (event) {
-        if (!mounted) return;
-        setState(() {
-          if (event['type'] == 'status') {
-            loadingStatus = event['content'] == 'queued'
-                ? 'Waiting in Queue...'
-                : 'Processing...';
-          }
-          else if (event['type'] == 'chunk') {
-            loadingStatus = 'Typing...';
-            currentStreamBuffer += event['content'];
-          }
-        });
-        scrollToBottom();
-      },
-      onError: (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
-        setState(() => isStreaming = false);
-      },
-      onDone: () {
-        if (!mounted) return;
-        setState(() {
-          if (currentStreamBuffer.isNotEmpty) {
-            messages.add(ChatMessage(
-                role: 'assistant', content: currentStreamBuffer));
-          }
-          currentStreamBuffer = '';
-          loadingStatus = '';
-          isStreaming = false;
-        });
-        scrollToBottom();
-      },
+    sendBaseMessage(
+      message: text,
+      sendApiCall: (msg) => apiService.sendMessage(widget.conversationId, msg)
     );
   }
 
@@ -111,16 +49,21 @@ class _ActiveErrorPracticeScreenState extends BaseChatScreenState<ActiveErrorPra
   String getTitle() => 'Error Practice';
 
   @override
-  String? getSubtitle() => widget.focusAreas.isEmpty
-      ? '${widget.errorCount} error${widget.errorCount != 1 ? 's' : ''}'
-      : '${widget.errorCount} error${widget.errorCount != 1 ? 's' : ''} • ${widget.focusAreas.join(", ")}';
+  String? getSubtitle() {
+    final errorLabel = '${widget.errorCount} error${widget.errorCount != 1 ? 's' : ''}';
+    if (widget.focusAreas.isEmpty) return errorLabel;
+    return '$errorLabel • ${widget.focusAreas.join(", ")}';
+  }
 
   @override
-  List<Widget> getAppBarActions() => [];
+  List<Widget> getAppBarActions() => [
+    CheckErrorsAction(isLoading: isCheckingErrors, onPressed: checkAllMessagesCommon),
+  ];
 
   @override
   Widget? buildHeaderWidget() {
     if (widget.focusAreas.isEmpty) return null;
+    
     return ChatHeaderWidget(
       title: 'Practice Focus',
       icon: Icons.psychology_rounded,
@@ -132,26 +75,16 @@ class _ActiveErrorPracticeScreenState extends BaseChatScreenState<ActiveErrorPra
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.orange.withOpacity(0.3),
-            ),
+            border: Border.all(color: Colors.orange.withOpacity(0.3)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                _getIconForErrorType(area),
-                size: 14,
-                color: Colors.orange[700],
-              ),
+              Icon(_getIconForErrorType(area), size: 14, color: Colors.orange[700]),
               const SizedBox(width: 6),
               Text(
                 area.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.orange[700],
-                ),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange[700]),
               ),
             ],
           ),
@@ -161,20 +94,14 @@ class _ActiveErrorPracticeScreenState extends BaseChatScreenState<ActiveErrorPra
   }
 
   IconData _getIconForErrorType(String type) {
-    switch (type.toLowerCase()) {
-      case 'grammar':
-        return Icons.text_fields_rounded;
-      case 'spelling':
-        return Icons.spellcheck_rounded;
-      case 'vocabulary':
-        return Icons.book_rounded;
-      case 'punctuation':
-        return Icons.format_quote_rounded;
-      case 'syntax':
-        return Icons.code_rounded;
-      default:
-        return Icons.error_outline_rounded;
-    }
+    return switch (type.toLowerCase()) {
+      'grammar' => Icons.text_fields_rounded,
+      'spelling' => Icons.spellcheck_rounded,
+      'vocabulary' => Icons.book_rounded,
+      'punctuation' => Icons.format_quote_rounded,
+      'syntax' => Icons.code_rounded,
+      _ => Icons.error_outline_rounded,
+    };
   }
 
   @override

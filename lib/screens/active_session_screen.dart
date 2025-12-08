@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/schemas.dart';
 import '../services/api_service.dart';
 import 'base_chat_screen.dart';
+import 'widgets/check_errors_action.dart';
 
 class ActiveSessionScreen extends BaseChatScreen {
   final Conversation initialConversation;
@@ -28,9 +29,6 @@ class _ActiveSessionScreenState extends BaseChatScreenState<ActiveSessionScreen>
   @override
   bool shouldFetchHistory() {
     if (widget.initialConversation is ConversationDetail) {
-      // If we already have the detail with messages (even if empty list), we rely on it.
-      // However, if the list is empty, it might mean we just haven't fetched it?
-      // No, ConversationDetail implies we fetched the details.
       return false;
     }
     return true;
@@ -38,140 +36,19 @@ class _ActiveSessionScreenState extends BaseChatScreenState<ActiveSessionScreen>
 
   @override
   Future<void> fetchConversationHistory() async {
-    // Double check just in case this is called manually
     if (!shouldFetchHistory()) return;
-
-    try {
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      final conversationDetail = await apiService.getConversation(widget.initialConversation.id);
-      if (mounted) {
-        setState(() {
-          messages = conversationDetail.messages;
-          isLoadingHistory = false;
-        });
-        scrollToBottom();
-      }
-    } catch (e) {
-      print('🔴 Failed to fetch history: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load history: ${e.toString()}')),
-        );
-        setState(() {
-          isLoadingHistory = false;
-        });
-      }
-    }
+    await fetchBaseConversationHistory(widget.initialConversation.id);
   }
 
   @override
   void sendMessage() {
+    final apiService = Provider.of<ApiService>(context, listen: false);
     final text = textController.text.trim();
-    if (text.isEmpty || isStreaming) return;
-
-    final apiService = Provider.of<ApiService>(context, listen: false);
-    textController.clear();
-
-    setState(() {
-      messages.add(ChatMessage(role: 'user', content: text));
-      isStreaming = true;
-      currentStreamBuffer = '';
-      loadingStatus = 'Connecting...';
-    });
-
-    scrollToBottom();
-
-    apiService.sendMessage(widget.initialConversation.id, text).listen(
-      (event) {
-        if (!mounted) return;
-        setState(() {
-          if (event['type'] == 'status') {
-            loadingStatus = event['content'] == 'queued'
-                ? 'Waiting in Queue...'
-                : 'Processing...';
-          }
-          else if (event['type'] == 'chunk') {
-            loadingStatus = 'Typing...';
-            currentStreamBuffer += event['content'];
-          }
-        });
-        scrollToBottom();
-      },
-      onError: (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
-        setState(() => isStreaming = false);
-      },
-      onDone: () {
-        if (!mounted) return;
-        setState(() {
-          if (currentStreamBuffer.isNotEmpty) {
-            messages.add(ChatMessage(
-                role: 'assistant', content: currentStreamBuffer));
-          }
-          currentStreamBuffer = '';
-          loadingStatus = '';
-          isStreaming = false;
-        });
-        scrollToBottom();
-      },
+    
+    sendBaseMessage(
+      message: text, 
+      sendApiCall: (msg) => apiService.sendMessage(widget.initialConversation.id, msg)
     );
-  }
-
-  Future<void> _checkAllMessages() async {
-    setState(() => isCheckingErrors = true);
-
-    final apiService = Provider.of<ApiService>(context, listen: false);
-    final userMessages = messages.where((m) => m.role == 'user').map((m) => m.content).join('\n\n');
-
-    if (userMessages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No messages to check yet!')),
-      );
-      setState(() => isCheckingErrors = false);
-      return;
-    }
-
-    try {
-      final request = ErrorCheckRequest(text: userMessages);
-      final response = await apiService.checkErrors(request);
-
-      if (mounted) {
-        if (response.errorCount == 0) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No errors found. Great job!'),
-              backgroundColor: Colors.blue,
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${response.errorCount} errors found and saved to your history.'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-
-        // Check for level change suggestion
-        await handleLevelChangeSuggestion(response);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error checking messages: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => isCheckingErrors = false);
-      }
-    }
   }
 
   @override
@@ -181,24 +58,9 @@ class _ActiveSessionScreenState extends BaseChatScreenState<ActiveSessionScreen>
   String? getSubtitle() => null;
 
   @override
-  List<Widget> getAppBarActions() {
-    return [
-      isCheckingErrors
-          ? const Padding(
-              padding: EdgeInsets.only(right: 16.0),
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
-          : IconButton(
-              icon: const Icon(Icons.plagiarism_outlined),
-              tooltip: 'Analyze My Messages',
-              onPressed: _checkAllMessages,
-            ),
-    ];
-  }
+  List<Widget> getAppBarActions() => [
+    CheckErrorsAction(isLoading: isCheckingErrors, onPressed: checkAllMessagesCommon),
+  ];
 
   @override
   Widget? buildHeaderWidget() => null;

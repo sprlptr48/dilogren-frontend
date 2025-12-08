@@ -446,6 +446,32 @@ class ApiService {
     }
   }
 
+  // 9a. Start Adaptive Session
+  Future<ConversationDetail> startAdaptiveSession() async {
+    final url = Uri.parse('$baseUrl/adaptive/start');
+    print('🔵 [POST] Starting adaptive session at: $url');
+
+    try {
+      final response = await _client.post(
+        url,
+        headers: _getHeaders(),
+        // No body needed as context is inferred from user ID
+      );
+
+      print('🟢 Response Status: ${response.statusCode}');
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 201) {
+        return ConversationDetail.fromJson(body);
+      } else {
+        throw Exception(body['detail'] ?? 'Failed to start adaptive session');
+      }
+    } catch (e) {
+      print('🔴 Connection Error in startAdaptiveSession: $e');
+      throw Exception('Connection error: $e');
+    }
+  }
+
   // 10. Get All Conversations (Session Listing)
   Future<ConversationListResponse> getConversations({
     String? conversationType,
@@ -576,6 +602,31 @@ class ApiService {
       }
     } catch (e) {
       print('🔴 Connection Error in updateLevel: $e');
+      throw Exception('Connection error: $e');
+    }
+  }
+
+  // 15. Mark Error as Resolved
+  Future<void> markErrorAsResolved(String errorId) async {
+    final url = Uri.parse('$baseUrl/errors/$errorId/resolve');
+    print('🔵 [PATCH] Marking error $errorId as resolved at: $url');
+
+    try {
+      final response = await _client.patch(
+        url,
+        headers: _getHeaders(),
+      );
+
+      print('🟢 Response Status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        return;
+      } else {
+        final body = jsonDecode(response.body);
+        throw Exception(body['detail'] ?? 'Failed to resolve error');
+      }
+    } catch (e) {
+      print('🔴 Connection Error in markErrorAsResolved: $e');
       throw Exception('Connection error: $e');
     }
   }
