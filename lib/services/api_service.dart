@@ -517,7 +517,7 @@ class ApiService {
       final response = await _client.delete(url, headers: _getHeaders());
       print('🟢 Response Status: ${response.statusCode}');
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 204) {
         return;
       } else {
         final body = jsonDecode(response.body);

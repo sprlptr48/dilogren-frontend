@@ -9,7 +9,6 @@ import 'widgets/chat_header_widget.dart';
 import 'widgets/check_errors_action.dart';
 import 'active_error_practice_screen.dart';
 import 'active_word_session_screen.dart';
-import 'active_session_screen.dart';
 
 class ActiveAdaptiveChatScreen extends BaseChatScreen {
   final String conversationId;
@@ -68,19 +67,16 @@ class _ActiveAdaptiveChatScreenState extends BaseChatScreenState<ActiveAdaptiveC
   void _handleToolCalls(List<dynamic> toolCalls) {
     for (final toolCall in toolCalls) {
       final name = toolCall['name'] as String?;
-      final arguments = toolCall['arguments'] as Map<String, dynamic>? ?? {};
       
       switch (name) {
         case 'navigate_to_mistakes':
           _navigateToMistakePractice();
           break;
         case 'navigate_to_words':
-          final mode = arguments['mode'] as String? ?? 'daily';
-          _navigateToWordLearning(mode);
+          _navigateToWordLearning();
           break;
         case 'navigate_to_course':
-          final courseId = arguments['course_id'] as String?;
-          _navigateToCourse(courseId);
+          _navigateToCourse();
           break;
         case 'trigger_error_check':
           checkAllMessagesCommon();
@@ -97,16 +93,16 @@ class _ActiveAdaptiveChatScreenState extends BaseChatScreenState<ActiveAdaptiveC
       context: context,
       task: () => apiService.startErrorPractice(),
       screenBuilder: (session) => ActiveErrorPracticeScreen(
-        sessionId: session.sessionId,
+        conversationId: session.sessionId,
+        errorCount: session.errorCount,
         focusAreas: session.focusAreas,
-        initialMessage: session.message,
       ),
       errorPrefix: 'Failed to start mistake practice',
     );
   }
 
-  /// Navigate to word learning screen
-  void _navigateToWordLearning(String mode) {
+  /// Navigate to word learning screen (defaults to daily mode)
+  void _navigateToWordLearning() {
     final apiService = Provider.of<ApiService>(context, listen: false);
     final authService = Provider.of<AuthService>(context, listen: false);
     final level = authService.user?.cefrLevel ?? CefrLevel.B1;
@@ -114,7 +110,7 @@ class _ActiveAdaptiveChatScreenState extends BaseChatScreenState<ActiveAdaptiveC
     final request = WordSessionStartRequest(
       level: level,
       count: 5,
-      mode: mode,
+      mode: 'daily',
     );
     
     runWithLoadingDialog(
@@ -125,36 +121,16 @@ class _ActiveAdaptiveChatScreenState extends BaseChatScreenState<ActiveAdaptiveC
     );
   }
 
-  /// Navigate to course session screen
-  void _navigateToCourse(String? courseId) async {
-    if (courseId == null || courseId == 'COURSE_ID_HERE') {
-      // No specific course, show a message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No active course found. Please start a course from the home screen.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-      return;
+  /// Navigate to course session - shows message since we need user to pick a course
+  void _navigateToCourse() {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a course from the home screen to continue.'),
+          backgroundColor: Colors.blue,
+        ),
+      );
     }
-    
-    final apiService = Provider.of<ApiService>(context, listen: false);
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final level = authService.user?.cefrLevel ?? CefrLevel.B1;
-    
-    final request = CourseSessionStartRequest(
-      courseId: courseId,
-      level: level,
-    );
-    
-    runWithLoadingDialog(
-      context: context,
-      task: () => apiService.startCourseSession(request),
-      screenBuilder: (session) => ActiveSessionScreen(initialConversation: session),
-      errorPrefix: 'Failed to continue course',
-    );
   }
 
   void _handleActionTap(String action) {
