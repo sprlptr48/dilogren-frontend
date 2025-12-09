@@ -13,6 +13,19 @@ class AppTheme {
   static const Color warning = Color(0xFFFFBB33);
   static const Color error = Color(0xFFFF4444);
 
+  // Chat Specific
+  static const Color userBubble = primary;
+  static const Color aiBubble = surface;
+  static const Color inputBackground = Color(0xFFF8F9FE);
+  
+  // Gradients
+  static const LinearGradient primaryGradient = LinearGradient(
+    colors: [Color(0xFF6A1B9A), Color(0xFFAB47BC)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
@@ -21,7 +34,6 @@ class AppTheme {
         seedColor: primary,
         secondary: secondary,
         tertiary: tertiary,
-        background: background,
         surface: surface,
         error: error,
       ),

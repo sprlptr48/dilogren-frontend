@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/schemas.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/navigation_helpers.dart';
 import 'base_chat_screen.dart';
 import 'widgets/chat_header_widget.dart';
@@ -161,7 +162,7 @@ class _ActiveAdaptiveChatScreenState extends BaseChatScreenState<ActiveAdaptiveC
     return ChatHeaderWidget(
       title: 'Quick Actions',
       icon: Icons.auto_awesome,
-      primaryColor: Colors.purple,
+      primaryColor: AppTheme.primary,
       items: _availableActions,
       onItemTap: _handleActionTap,
       itemBuilder: (context, action) {
@@ -172,15 +173,15 @@ class _ActiveAdaptiveChatScreenState extends BaseChatScreenState<ActiveAdaptiveC
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: color.withOpacity(0.5)),
-            boxShadow: [BoxShadow(color: color.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
+            border: Border.all(color: color.withValues(alpha: 0.5)),
+            boxShadow: [BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 16, color: color),
               const SizedBox(width: 8),
-              Text(action, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color.withOpacity(0.9))),
+              Text(action, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color.withValues(alpha: 0.9))),
             ],
           ),
         );

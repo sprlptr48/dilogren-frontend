@@ -155,7 +155,7 @@ class _ErrorStatsScreenState extends State<ErrorStatsScreen> {
                                 child: Row(
                                   children: [
                                     CircleAvatar(
-                                      backgroundColor: _getColorForErrorType(errorType.errorType).withOpacity(0.2),
+                                      backgroundColor: _getColorForErrorType(errorType.errorType).withValues(alpha: 0.2),
                                       child: Icon(
                                         _getIconForErrorType(errorType.errorType),
                                         color: _getColorForErrorType(errorType.errorType),
@@ -210,7 +210,7 @@ class _ErrorStatsScreenState extends State<ErrorStatsScreen> {
                                 ),
                               ),
                             );
-                          }).toList(),
+                          }),
                         ],
 
                         const SizedBox(height: 24),
@@ -251,7 +251,7 @@ class _ErrorStatsScreenState extends State<ErrorStatsScreen> {
                                       const SizedBox(width: 12),
                                       Chip(
                                         label: Text('${_stats!.mostRecentLevel!.confidence} Confidence'),
-                                        backgroundColor: Colors.green.withOpacity(0.2),
+                                        backgroundColor: Colors.green.withValues(alpha: 0.2),
                                       ),
                                     ],
                                   ),

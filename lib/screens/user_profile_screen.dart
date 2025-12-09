@@ -150,6 +150,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
                     // CEFR Level Dropdown
                     DropdownButtonFormField<CefrLevel>(
+                      // ignore: deprecated_member_use
                       value: _selectedLevel,
                       decoration: InputDecoration(
                         labelText: 'CEFR Level',
@@ -181,7 +182,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
+                        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(

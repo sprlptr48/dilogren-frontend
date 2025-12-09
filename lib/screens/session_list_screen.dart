@@ -241,13 +241,13 @@ class _SessionListScreenState extends State<SessionListScreen> {
                         child: ListView.builder(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: _conversations.length,
-                          itemBuilder: (context, index) {
+                          itemBuilder: (itemContext, index) {
                             final conversation = _conversations[index];
                             return Card(
                               margin: const EdgeInsets.only(bottom: 12),
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: _getTypeColor(conversation.conversationType).withOpacity(0.2),
+                                  backgroundColor: _getTypeColor(conversation.conversationType).withValues(alpha: 0.2),
                                   child: Icon(
                                     _getTypeIcon(conversation.conversationType),
                                     color: _getTypeColor(conversation.conversationType),
@@ -282,7 +282,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
                                     // But here we need details to decide arguments for some screens
                                     final conversationDetail = await apiService.getConversation(conversation.id);
 
-                                    if (!mounted) return;
+                                    if (!itemContext.mounted) return;
 
                                     if (conversation.conversationType == 'course') {
                                       // Fix for empty sessions (e.g. reused sessions without greetings):
@@ -297,7 +297,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
                                       }
 
                                       Navigator.push(
-                                        context,
+                                        itemContext,
                                         MaterialPageRoute(
                                           builder: (context) => ActiveSessionScreen(
                                             initialConversation: conversationDetail,
@@ -328,21 +328,18 @@ class _SessionListScreenState extends State<SessionListScreen> {
                                       }
                                       
                                       Navigator.push(
-                                        context,
+                                        itemContext,
                                         MaterialPageRoute(
                                           builder: (context) => ActiveWordSessionScreen(session: wordSession),
                                         ),
                                       );
                                     } else if (conversation.conversationType == 'error_practice') {
-                                      // Extract error practice details
-                                      // We might not have 'error_count' or 'focus_areas' explicitly in top-level settings if not saved carefully
-                                      // But let's assume they are stored in settings
                                       final settings = conversationDetail.settings;
                                       final errorCount = settings['error_count'] as int? ?? 0;
                                       final focusAreas = (settings['focus_areas'] as List?)?.cast<String>() ?? [];
                                       
                                       Navigator.push(
-                                        context,
+                                        itemContext,
                                         MaterialPageRoute(
                                           builder: (context) => ActiveErrorPracticeScreen(
                                             conversationId: conversationDetail.id,
@@ -354,7 +351,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
                                     } else {
                                       // Fallback for old chats or other types
                                       Navigator.push(
-                                        context,
+                                        itemContext,
                                         MaterialPageRoute(
                                           builder: (context) => ActiveSessionScreen(
                                             initialConversation: Conversation(

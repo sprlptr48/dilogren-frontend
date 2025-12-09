@@ -38,7 +38,7 @@ class _WordSessionSetupScreenState extends State<WordSessionSetupScreen> {
         });
       }
     } catch (e) {
-      print('🔴 Preview words error: $e');
+      debugPrint('🔴 Preview words error: $e');
     }
   }
 
@@ -82,7 +82,7 @@ class _WordSessionSetupScreenState extends State<WordSessionSetupScreen> {
         );
       }
     } catch (e) {
-      print('🔴 Word session start error: $e');
+      debugPrint('🔴 Word session start error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -278,7 +278,7 @@ class _WordSessionSetupScreenState extends State<WordSessionSetupScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -315,7 +315,7 @@ class _WordSessionSetupScreenState extends State<WordSessionSetupScreen> {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -349,10 +349,10 @@ class _WordSessionSetupScreenState extends State<WordSessionSetupScreen> {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: Theme.of(context).primaryColor.withOpacity(0.3),
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Text(

@@ -26,13 +26,13 @@ class ChatHeaderWidget extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            primaryColor.withOpacity(0.15),
-            primaryColor.withOpacity(0.05),
+            primaryColor.withValues(alpha: 0.15),
+            primaryColor.withValues(alpha: 0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: primaryColor.withOpacity(0.3),
+          color: primaryColor.withValues(alpha: 0.3),
         ),
       ),
       child: Column(

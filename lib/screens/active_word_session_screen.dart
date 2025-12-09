@@ -38,7 +38,7 @@ class _ActiveWordSessionScreenState extends BaseChatScreenState<ActiveWordSessio
       sendApiCall: (msg) => apiService.sendWordMessage(widget.session.sessionId, msg),
       statusMessageBuilder: (status) {
         if (status == 'queued') {
-          return 'Waiting in Queue (Serverless GPU warming up)...';
+          return 'Waiting in Queue (GPU warming up)...';
         }
         return 'Processing...';
       }
@@ -69,7 +69,7 @@ class _ActiveWordSessionScreenState extends BaseChatScreenState<ActiveWordSessio
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.3)),
+            border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.3)),
           ),
           child: Text(
             word,

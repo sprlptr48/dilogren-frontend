@@ -104,7 +104,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     'Create an account to begin your journey.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -157,6 +157,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 16),
                   
                    DropdownButtonFormField<CefrLevel>(
+                    // ignore: deprecated_member_use
                     value: _selectedLevel,
                     items: CefrLevel.values.map((level) {
                       return DropdownMenuItem(

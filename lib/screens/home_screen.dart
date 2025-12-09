@@ -158,13 +158,12 @@ class HomeScreen extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6A1B9A), Color(0xFFAB47BC)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: AppTheme.primaryGradient,
         boxShadow: [
-          BoxShadow(color: Colors.purple.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 6)),
+          BoxShadow(
+              color: AppTheme.primary.withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 6)),
         ],
       ),
       child: Material(
@@ -186,7 +185,7 @@ class HomeScreen extends StatelessWidget {
                 Text(
                   'Practice everything in one place.\nContext-aware AI companion.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.9)),
+                  style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.9)),
                 ),
               ],
             ),
