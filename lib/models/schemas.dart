@@ -95,6 +95,10 @@ class Course {
   final Map<String, dynamic>? content;
   final bool isActive;
   final int orderIndex;
+  
+  // Progress fields (included when user is authenticated)
+  final double? progressPercentage;
+  final bool isStarted;
 
   Course({
     required this.id,
@@ -105,6 +109,8 @@ class Course {
     this.content,
     required this.isActive,
     required this.orderIndex,
+    this.progressPercentage,
+    this.isStarted = false,
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
@@ -117,8 +123,28 @@ class Course {
       content: json['content'],
       isActive: json['is_active'],
       orderIndex: json['order_index'],
+      progressPercentage: (json['progress_percentage'] as num?)?.toDouble(),
+      isStarted: json['is_started'] ?? false,
     );
   }
+
+  /// Topics from the course content (vocabulary, grammar focus, etc.)
+  List<String> get topics {
+    final topicsList = content?['topics'] as List?;
+    return topicsList?.cast<String>() ?? [];
+  }
+
+  /// Estimated duration in minutes from content
+  int? get estimatedDurationMinutes => content?['estimated_duration_minutes'] as int?;
+
+  /// Human-readable display of topics (e.g., "food and cooking, present simple")
+  String get topicsDisplay {
+    if (topics.isEmpty) return '';
+    return topics.join(', ');
+  }
+  
+  /// Check if course is completed (100% progress)
+  bool get isCompleted => progressPercentage != null && progressPercentage! >= 100;
 }
 
 class CourseSessionStartRequest {
@@ -167,6 +193,7 @@ class Conversation {
 
 class ConversationDetail extends Conversation {
   final List<ChatMessage> messages;
+  final String? activeCourseId;  // For adaptive chat: the user's active course
 
   ConversationDetail({
     required super.id,
@@ -177,6 +204,7 @@ class ConversationDetail extends Conversation {
     required super.updatedAt,
     required super.messageCount,
     required this.messages,
+    this.activeCourseId,
   });
 
   factory ConversationDetail.fromJson(Map<String, dynamic> json) {
@@ -191,6 +219,7 @@ class ConversationDetail extends Conversation {
       messages: (json['messages'] as List)
           .map((e) => ChatMessage.fromJson(e))
           .toList(),
+      activeCourseId: json['active_course_id'],
     );
   }
 }
@@ -587,4 +616,46 @@ class ErrorStatsResponse {
           : null,
     );
   }
+}
+
+// --- Course Progress Models ---
+
+/// Human-readable labels for each learning phase
+const Map<String, String> phaseLabels = {
+  'grammar': 'Grammar',
+  'practice': 'Practice',
+  'speaking': 'Speaking',
+};
+
+/// Order of phases in the learning progression
+const List<String> phaseOrder = ['grammar', 'practice', 'speaking'];
+
+class CourseProgress {
+  final List<String> completedPhases;
+  final double progressPercentage;
+
+  CourseProgress({
+    required this.completedPhases,
+    required this.progressPercentage,
+  });
+
+  factory CourseProgress.fromJson(Map<String, dynamic> json) {
+    return CourseProgress(
+      completedPhases: (json['completed_topics'] as List?)?.cast<String>() ?? [],
+      progressPercentage: (json['progress_percentage'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  /// Get the current phase (first uncompleted phase)
+  String get currentPhase {
+    for (final phase in phaseOrder) {
+      if (!completedPhases.contains(phase)) {
+        return phase;
+      }
+    }
+    return 'speaking'; // All phases complete, still on speaking (endless)
+  }
+
+  /// Check if a specific phase is completed
+  bool isPhaseCompleted(String phase) => completedPhases.contains(phase);
 }

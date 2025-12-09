@@ -13,6 +13,7 @@ import 'session_list_screen.dart';
 import 'error_stats_screen.dart';
 import 'user_profile_screen.dart';
 import 'active_adaptive_chat_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -35,6 +36,8 @@ class HomeScreen extends StatelessWidget {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const SessionListScreen()));
               } else if (value == 'stats') {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const ErrorStatsScreen()));
+              } else if (value == 'settings') {
+                 Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
               } else if (value == 'logout') {
                 await authService.logout();
               }
@@ -43,7 +46,8 @@ class HomeScreen extends StatelessWidget {
               PopupMenuItem(value: 'profile', child: Row(children: [Icon(Icons.person_outline), SizedBox(width: 8), Text('Profile')])),
               PopupMenuItem(value: 'sessions', child: Row(children: [Icon(Icons.history), SizedBox(width: 8), Text('My Sessions')])),
               PopupMenuItem(value: 'stats', child: Row(children: [Icon(Icons.analytics_outlined), SizedBox(width: 8), Text('Error Stats')])),
-              PopupMenuDivider(),
+              PopupMenuItem(value: 'settings', child: Row(children: [Icon(Icons.settings), SizedBox(width: 8), Text('Settings')])),
+               PopupMenuDivider(),
               PopupMenuItem(value: 'logout', child: Row(children: [Icon(Icons.logout, color: Colors.red), SizedBox(width: 8), Text('Logout')])),
             ],
           ),
@@ -158,11 +162,12 @@ class HomeScreen extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: AppTheme.primaryGradient,
+        color: AppTheme.primary,
         boxShadow: [
           BoxShadow(
-              color: AppTheme.primary.withValues(alpha: 0.3),
-              blurRadius: 12,
+              color: AppTheme.primary.withValues(alpha: 0.4),
+              blurRadius: 20,
+              spreadRadius: 2,
               offset: const Offset(0, 6)),
         ],
       ),
@@ -178,7 +183,7 @@ class HomeScreen extends StatelessWidget {
                 const Icon(Icons.auto_awesome, size: 48, color: Colors.white),
                 const SizedBox(height: 12),
                 const Text(
-                  'Dil Öğretmen',
+                  'Start',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
                 const SizedBox(height: 8),
@@ -269,6 +274,7 @@ class HomeScreen extends StatelessWidget {
       screenBuilder: (session) => ActiveAdaptiveChatScreen(
         conversationId: session.id,
         initialMessages: session.messages,
+        activeCourseId: session.activeCourseId,
       ),
       errorPrefix: 'Failed to start chat',
     );

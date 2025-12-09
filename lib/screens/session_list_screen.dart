@@ -301,6 +301,7 @@ class _SessionListScreenState extends State<SessionListScreen> {
                                         MaterialPageRoute(
                                           builder: (context) => ActiveSessionScreen(
                                             initialConversation: conversationDetail,
+                                            courseId: conversationDetail.settings['course_id'] as String?,
                                           ),
                                         ),
                                       );

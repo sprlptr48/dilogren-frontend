@@ -6,6 +6,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import '../models/schemas.dart';
 import '../services/api_service.dart';
+import '../services/tts_service.dart';
 
 class ChatController extends ChangeNotifier {
   // State
@@ -23,6 +24,11 @@ class ChatController extends ChangeNotifier {
   bool isSttSupported = true;
   String? currentLocaleId;
   String initialTextBeforeStt = '';
+
+  // TTS State
+  // TTS State
+  TtsService? _ttsService;
+  bool get isSpeaking => _ttsService?.isSpeaking ?? false;
 
   // Controllers
   final TextEditingController textController = TextEditingController();
@@ -45,6 +51,8 @@ class ChatController extends ChangeNotifier {
     textController.dispose();
     scrollController.dispose();
     _speechToText.cancel();
+    _speechToText.cancel();
+    _ttsService?.stop();
     super.dispose();
   }
 
@@ -78,6 +86,9 @@ class ChatController extends ChangeNotifier {
         orElse: () => locales.first,
       ).localeId;
     }
+
+    // TTS Init handled by TtsService
+
     notifyListeners();
   }
 
@@ -105,6 +116,27 @@ class ChatController extends ChangeNotifier {
     await _speechToText.stop();
     isListening = false;
     notifyListeners();
+  }
+
+  // --- TTS Methods ---
+
+  void setTtsService(TtsService service) {
+    _ttsService = service;
+    _ttsService!.addListener(notifyListeners);
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+    _ttsService?.removeListener(notifyListeners); // Clean up
+    super.removeListener(listener);
+  }
+
+  Future<void> speak(String text) async {
+    await _ttsService?.speak(text);
+  }
+
+  Future<void> stopSpeaking() async {
+    await _ttsService?.stop();
   }
 
   // --- Chat Methods ---
@@ -168,7 +200,12 @@ class ChatController extends ChangeNotifier {
         }
         else if (event['type'] == 'chunk') {
           loadingStatus = 'Typing...';
-          currentStreamBuffer += event['content'];
+          final chunk = event['content'];
+          currentStreamBuffer += chunk;
+          
+          if (_ttsService != null) {
+            _ttsService!.processStreamChunk(chunk);
+          }
           
           _hasPendingUpdate = true;
           _updateThrottleTimer ??= Timer.periodic(_updateThrottleDuration, (_) {
@@ -196,6 +233,9 @@ class ChatController extends ChangeNotifier {
         if (currentStreamBuffer.isNotEmpty) {
           messages.add(ChatMessage(
               role: 'assistant', content: currentStreamBuffer));
+              
+           // Flush remaining TTS
+           _ttsService?.flushStream();
         }
         currentStreamBuffer = '';
         loadingStatus = '';

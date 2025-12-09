@@ -13,7 +13,14 @@ class ChatMessageBubble extends StatelessWidget {
     required this.content,
     this.isStreaming = false,
     this.loadingStatus,
+    this.onPlayAudio,
+    this.onStopAudio,
+    this.isSpeakingThisMessage = false,
   });
+
+  final VoidCallback? onPlayAudio;
+  final VoidCallback? onStopAudio;
+  final bool isSpeakingThisMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +81,22 @@ class ChatMessageBubble extends StatelessWidget {
                       ),
                   ],
                 ),
-              )
+              ),
+            if (!isUser && !isStreaming && onPlayAudio != null)
+               Padding(
+                padding: const EdgeInsets.only(top: 4.0),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: InkWell(
+                    onTap: isSpeakingThisMessage ? onStopAudio : onPlayAudio,
+                    child: Icon(
+                      isSpeakingThisMessage ? Icons.close : Icons.volume_up_rounded,
+                      size: 20,
+                      color: isSpeakingThisMessage ? Colors.red : Colors.black54,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

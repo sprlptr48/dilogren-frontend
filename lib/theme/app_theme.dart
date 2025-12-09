@@ -33,6 +33,17 @@ class AppTheme {
   static const Color errorSyntax = Color(0xFFFFA726); // Orange 400
   static const Color errorDefault = Color(0xFFBDBDBD); // Grey 400
 
+  // Chat Screen AppBar Styles (for BaseChatScreen only)
+  static const TextStyle chatTitleStyle = TextStyle(
+    fontSize: 16,
+    color: secondary,
+    fontWeight: FontWeight.w600,
+  );
+  
+  static const TextStyle chatSubtitleStyle = TextStyle(
+    fontSize: 12,
+    color: Color(0xFF757575), // Grey[600]
+  );
 
   static ThemeData get lightTheme {
     return ThemeData(

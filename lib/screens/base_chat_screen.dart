@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../models/schemas.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/tts_service.dart';
 import '../controllers/chat_controller.dart';
+import '../theme/app_theme.dart';
 import 'widgets/chat_message_bubble.dart';
 import 'widgets/chat_input_area.dart';
 
@@ -37,8 +39,6 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
   void initState() {
     super.initState();
     controller = ChatController();
-    controller.addListener(_onControllerChanged);
-
     // Give subclasses a chance to provide initial messages
     controller.setMessages(getInitialMessages());
 
@@ -60,6 +60,17 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
         curve: Curves.easeInOut,
       ),
     );
+
+    // Listen to controller changes AFTER initialization
+    controller.addListener(_onControllerChanged);
+
+    // Initialize TTS Service
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final ttsService = Provider.of<TtsService>(context, listen: false);
+        controller.setTtsService(ttsService);
+      }
+    });
   }
 
   void _onControllerChanged() {
@@ -309,11 +320,8 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(getTitle(), style: const TextStyle(fontSize: 16)),
-                  Text(
-                    getSubtitle()!,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
+                  Text(getTitle(), style: AppTheme.chatTitleStyle),
+                  Text(getSubtitle()!, style: AppTheme.chatSubtitleStyle),
                 ],
               )
             : Text(getTitle()),
@@ -357,6 +365,11 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
       content: content, 
       isStreaming: isStreaming,
       loadingStatus: controller.loadingStatus,
+      onPlayAudio: role == 'assistant' && !isStreaming 
+          ? () => controller.speak(content) 
+          : null,
+      onStopAudio: controller.stopSpeaking,
+      isSpeakingThisMessage: role == 'assistant' && controller.isSpeaking,
     );
   }
 

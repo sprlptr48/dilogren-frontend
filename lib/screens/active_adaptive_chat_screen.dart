@@ -10,15 +10,18 @@ import 'widgets/chat_header_widget.dart';
 import 'widgets/check_errors_action.dart';
 import 'active_error_practice_screen.dart';
 import 'active_word_session_screen.dart';
+import 'active_session_screen.dart';
 
 class ActiveAdaptiveChatScreen extends BaseChatScreen {
   final String conversationId;
   final List<ChatMessage> initialMessages;
+  final String? activeCourseId;  // The user's active course for navigation
 
   const ActiveAdaptiveChatScreen({
     super.key,
     required this.conversationId,
     required this.initialMessages,
+    this.activeCourseId,
   });
 
   @override
@@ -122,16 +125,39 @@ class _ActiveAdaptiveChatScreenState extends BaseChatScreenState<ActiveAdaptiveC
     );
   }
 
-  /// Navigate to course session - shows message since we need user to pick a course
+  /// Navigate to course session using the active course ID
   void _navigateToCourse() {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a course from the home screen to continue.'),
-          backgroundColor: Colors.blue,
-        ),
-      );
+    final courseId = widget.activeCourseId;
+    
+    if (courseId == null) {
+      // No active course - show message to select one
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No active course found. Please start a course from the home screen.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
     }
+    
+    // Start the course session
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final level = authService.user?.cefrLevel ?? CefrLevel.B1;
+    
+    final request = CourseSessionStartRequest(courseId: courseId, level: level);
+    
+    runWithLoadingDialog(
+      context: context,
+      task: () => apiService.startCourseSession(request),
+      screenBuilder: (session) => ActiveSessionScreen(
+        initialConversation: session,
+        courseId: courseId,
+      ),
+      errorPrefix: 'Failed to start course',
+    );
   }
 
   void _handleActionTap(String action) {
@@ -147,7 +173,7 @@ class _ActiveAdaptiveChatScreenState extends BaseChatScreenState<ActiveAdaptiveC
   }
 
   @override
-  String getTitle() => 'Dil Öğretmen';
+  String getTitle() => 'Adaptive Chat';
 
   @override
   String? getSubtitle() => 'Adaptive Learning Companion';

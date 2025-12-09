@@ -150,6 +150,27 @@ class ApiService {
     }
   }
 
+  /// Fetch progress for a specific course (phase completion status)
+  Future<CourseProgress> getCourseProgress(String courseId) async {
+    final url = Uri.parse('$baseUrl/courses/$courseId/progress');
+    debugPrint('🔵 [GET] Fetching course progress from: $url');
+
+    try {
+      final response = await _client.get(url, headers: _getHeaders());
+      debugPrint('🟢 Response Status: ${response.statusCode}');
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return CourseProgress.fromJson(body);
+      } else {
+        throw Exception(body['detail'] ?? 'Failed to fetch course progress');
+      }
+    } catch (e) {
+      debugPrint('🔴 Connection Error in getCourseProgress: $e');
+      throw Exception('Connection error: $e');
+    }
+  }
+
   Future<ConversationDetail> startCourseSession(CourseSessionStartRequest request) async {
     final url = Uri.parse('$baseUrl/session/start');
     debugPrint('🔵 [POST] Starting course session at: $url');
