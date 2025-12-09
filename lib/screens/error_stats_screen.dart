@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/schemas.dart';
+
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
 
 class ErrorStatsScreen extends StatefulWidget {
   const ErrorStatsScreen({super.key});
@@ -61,17 +63,17 @@ class _ErrorStatsScreenState extends State<ErrorStatsScreen> {
   Color _getColorForErrorType(String type) {
     switch (type.toLowerCase()) {
       case 'grammar':
-        return Colors.blue;
+        return AppTheme.errorGrammar;
       case 'spelling':
-        return Colors.red;
+        return AppTheme.errorSpelling;
       case 'vocabulary':
-        return Colors.green;
+        return AppTheme.errorVocabulary;
       case 'punctuation':
-        return Colors.purple;
+        return AppTheme.errorPunctuation;
       case 'syntax':
-        return Colors.orange;
+        return AppTheme.errorSyntax;
       default:
-        return Colors.grey;
+        return AppTheme.errorDefault;
     }
   }
 

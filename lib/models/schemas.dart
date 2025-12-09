@@ -370,6 +370,8 @@ class ErrorCheckResponse {
   final int errorCount;
   final int textLength;
   final bool? levelChanged;
+  final bool? levelValidated;  // True if AI explicitly confirmed level is correct
+  final String? validationReasoning;  // AI's reasoning for confirming level
   final String? currentLevel;
   final String? suggestedLevel;
 
@@ -379,6 +381,8 @@ class ErrorCheckResponse {
     required this.errorCount,
     required this.textLength,
     this.levelChanged,
+    this.levelValidated,
+    this.validationReasoning,
     this.currentLevel,
     this.suggestedLevel,
   });
@@ -394,6 +398,8 @@ class ErrorCheckResponse {
       errorCount: json['error_count'],
       textLength: json['text_length'],
       levelChanged: json['level_changed'],
+      levelValidated: json['level_validated'],
+      validationReasoning: json['validation_reasoning'],
       currentLevel: json['current_level'],
       suggestedLevel: json['suggested_level'],
     );

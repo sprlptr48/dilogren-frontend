@@ -25,6 +25,14 @@ class AppTheme {
     end: Alignment.bottomRight,
   );
 
+  // Error Types
+  static const Color errorGrammar = Color(0xFF42A5F5); // Blue 400
+  static const Color errorSpelling = Color(0xFFEF5350); // Red 400
+  static const Color errorVocabulary = Color(0xFF66BB6A); // Green 400
+  static const Color errorPunctuation = Color(0xFFAB47BC); // Purple 400
+  static const Color errorSyntax = Color(0xFFFFA726); // Orange 400
+  static const Color errorDefault = Color(0xFFBDBDBD); // Grey 400
+
 
   static ThemeData get lightTheme {
     return ThemeData(

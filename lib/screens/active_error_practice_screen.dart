@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import 'base_chat_screen.dart';
 import 'widgets/chat_header_widget.dart';
 import 'widgets/check_errors_action.dart';
+import '../theme/app_theme.dart';
 
 class ActiveErrorPracticeScreen extends BaseChatScreen {
   final String conversationId;
@@ -64,33 +65,52 @@ class _ActiveErrorPracticeScreenState extends BaseChatScreenState<ActiveErrorPra
   Widget? buildHeaderWidget() {
     if (widget.focusAreas.isEmpty) return null;
     
+    // Use the color of the first focus area for the potential header theme, or a neutral one
+    // For simplicity, we can just use the primary theme color or a specific "Practice" color.
+    // But let's try to match the first error type if possible.
+    final primaryColor = widget.focusAreas.isNotEmpty 
+        ? _getColorForErrorType(widget.focusAreas.first) 
+        : Theme.of(context).primaryColor;
+
     return ChatHeaderWidget(
       title: 'Practice Focus',
       icon: Icons.psychology_rounded,
-      primaryColor: Colors.orange,
+      primaryColor: primaryColor,
       items: widget.focusAreas,
       itemBuilder: (context, area) {
+        final areaColor = _getColorForErrorType(area);
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+            border: Border.all(color: areaColor.withValues(alpha: 0.3)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(_getIconForErrorType(area), size: 14, color: Colors.orange[700]),
+              Icon(_getIconForErrorType(area), size: 14, color: areaColor),
               const SizedBox(width: 6),
               Text(
                 area.toUpperCase(),
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange[700]),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: areaColor),
               ),
             ],
           ),
         );
       },
     );
+  }
+
+  Color _getColorForErrorType(String type) {
+    return switch (type.toLowerCase()) {
+      'grammar' => AppTheme.errorGrammar,
+      'spelling' => AppTheme.errorSpelling,
+      'vocabulary' => AppTheme.errorVocabulary,
+      'punctuation' => AppTheme.errorPunctuation,
+      'syntax' => AppTheme.errorSyntax,
+      _ => AppTheme.errorDefault,
+    };
   }
 
   IconData _getIconForErrorType(String type) {

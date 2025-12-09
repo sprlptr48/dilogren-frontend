@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:speech_to_text/speech_to_text.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
 import '../models/schemas.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../controllers/chat_controller.dart';
 import 'widgets/chat_message_bubble.dart';
 import 'widgets/chat_input_area.dart';
 
@@ -15,44 +13,42 @@ abstract class BaseChatScreen extends StatefulWidget {
 }
 
 abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> with SingleTickerProviderStateMixin {
-  final textController = TextEditingController();
-  final scrollController = ScrollController();
-  final SpeechToText speechToText = SpeechToText();
-
-  late List<ChatMessage> messages;
-  bool isLoadingHistory = true;
-  bool isStreaming = false;
-  String currentStreamBuffer = '';
-  String loadingStatus = '';
-  bool isCheckingErrors = false;
-  bool sttAvailable = false;
-  bool isListening = false;
-  bool isSttSupported = true;
-  String? currentLocaleId;
+  late ChatController controller;
   
-  // Track analyzed messages to avoid re-analyzing
-  int _lastAnalyzedMessageCount = 0;
-  bool _enableAutoErrorCheckOnExit = false;
-  String initialTextBeforeStt = '';
-
-  // Performance: Throttle UI updates during streaming
-  Timer? _updateThrottleTimer;
-  bool _hasPendingUpdate = false;
-  static const _updateThrottleDuration = Duration(milliseconds: 50);
-
+  // UI Animation State
   late AnimationController micAnimationController;
   late Animation<double> micAnimation;
 
+  // Proxies for subclasses to maintain backward compatibility
+  TextEditingController get textController => controller.textController;
+  ScrollController get scrollController => controller.scrollController;
+  
+  List<ChatMessage> get messages => controller.messages;
+  set messages(List<ChatMessage> value) => controller.messages = value;
+
+  bool get isLoadingHistory => controller.isLoadingHistory;
+  set isLoadingHistory(bool value) => controller.isLoadingHistory = value;
+
+  bool get isStreaming => controller.isStreaming;
+  bool get isCheckingErrors => controller.isCheckingErrors;
+  bool get isListening => controller.isListening;
+  
   @override
   void initState() {
     super.initState();
-    messages = getInitialMessages();
+    controller = ChatController();
+    controller.addListener(_onControllerChanged);
+
+    // Give subclasses a chance to provide initial messages
+    controller.setMessages(getInitialMessages());
+
     if (shouldFetchHistory()) {
       fetchConversationHistory();
     } else {
-      isLoadingHistory = false;
+      controller.isLoadingHistory = false;
     }
-    initSpeech();
+
+    controller.initSpeech();
 
     micAnimationController = AnimationController(
       vsync: this,
@@ -66,99 +62,135 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
     );
   }
 
+  void _onControllerChanged() {
+    if (mounted) {
+      if (controller.isListening && !micAnimationController.isAnimating) {
+        micAnimationController.repeat(reverse: true);
+      } else if (!controller.isListening && micAnimationController.isAnimating) {
+        micAnimationController.stop();
+        micAnimationController.reset();
+      }
+      setState(() {});
+    }
+  }
+
   @override
   void dispose() {
-    // Fire-and-forget error check on exit if enabled and enough new messages
-    if (_enableAutoErrorCheckOnExit) {
-      final userMessageCount = messages.where((m) => m.role == 'user').length;
-      final newMessagesCount = userMessageCount - _lastAnalyzedMessageCount;
-      if (newMessagesCount >= 10) {
-        _triggerExitErrorCheck();
-      }
-    }
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    // Fire and forget error check
+    controller.triggerExitErrorCheck((text) => apiService.checkErrors(ErrorCheckRequest(text: text)));
     
-    _updateThrottleTimer?.cancel();
-    _scrollDebounceTimer?.cancel();
-    textController.dispose();
-    scrollController.dispose();
-    speechToText.cancel();
     micAnimationController.dispose();
+    controller.removeListener(_onControllerChanged);
+    controller.dispose();
     super.dispose();
   }
 
-  void initSpeech() async {
-    if (Platform.isWindows) {
-      if (mounted) setState(() => isSttSupported = false);
-      return;
-    }
-    sttAvailable = await speechToText.initialize(
-      onStatus: (status) {
-        if (status == 'notListening') {
-          setState(() {
-            isListening = false;
-            micAnimationController.stop();
-            micAnimationController.reset();
-          });
-        }
-      },
-      onError: (error) {
-        debugPrint('STT Error: $error');
-        setState(() {
-          isListening = false;
-          micAnimationController.stop();
-          micAnimationController.reset();
-        });
-      },
-    );
-    if (sttAvailable) {
-      var locales = await speechToText.locales();
-      currentLocaleId = locales.firstWhere(
-        (locale) => locale.localeId.startsWith('en'),
-        orElse: () => locales.first,
-      ).localeId;
-    }
-    if (mounted) setState(() {});
-  }
+  // --- Methods typically called by subclasses ---
 
-  void startListening() async {
-    if (!sttAvailable || !isSttSupported) return;
-    initialTextBeforeStt = textController.text;
-    setState(() => isListening = true);
-    micAnimationController.repeat(reverse: true);
-    await speechToText.listen(
-      onResult: (SpeechRecognitionResult result) {
-        setState(() {
-          textController.text = '$initialTextBeforeStt ${result.recognizedWords}'.trim();
-        });
-      },
-      localeId: currentLocaleId,
-      listenOptions: SpeechListenOptions(cancelOnError: true),
-    );
-  }
-
-  void stopListening() async {
-    if (!sttAvailable) return;
-    await speechToText.stop();
-    setState(() {
-      isListening = false;
-      micAnimationController.stop();
-      micAnimationController.reset();
-    });
-  }
-
-  void scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (scrollController.hasClients) {
-        scrollController.animateTo(
-          scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 100),
-          curve: Curves.easeOut,
+  Future<void> fetchBaseConversationHistory(String conversationId) async {
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    try {
+      await controller.fetchHistory(apiService, conversationId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text('Failed to load history: ${e.toString()}')),
         );
       }
-    });
+    }
   }
 
-  // Handle level change suggestion from error check
+  void sendBaseMessage({
+    required String message,
+    required Stream<Map<String, dynamic>> Function(String msg) sendApiCall, 
+    String Function(String status)? statusMessageBuilder,
+    void Function(List<dynamic> toolCalls)? onToolCalls,
+    bool enableAutoErrorCheckOnExit = false,
+  }) {
+    controller.sendMessage(
+      message: message,
+      sendApiCall: sendApiCall,
+      statusMessageBuilder: statusMessageBuilder,
+      onToolCalls: onToolCalls,
+      enableAutoErrorCheckOnExit: enableAutoErrorCheckOnExit,
+    );
+  }
+
+  // Common UI Logic for Error Checking
+  Future<void> checkAllMessagesCommon() async {
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    
+    try {
+      final response = await controller.checkErrors(apiService);
+
+      if (mounted) {
+        if (response.errorCount == 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No errors found. Great job!'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${response.errorCount} errors found and saved to your history.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        
+        // Handle level feedback (either validation or change suggestion)
+        if (response.levelChanged == true) {
+          // AI suggests a level change
+          await handleLevelChangeSuggestion(response);
+        } else if (response.levelValidated == true) {
+          // AI confirmed level is correct - show subtle feedback
+          _showLevelValidatedFeedback(response);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error checking messages: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Show subtle feedback when AI confirms level is correct
+  void _showLevelValidatedFeedback(ErrorCheckResponse response) {
+    final currentLevel = response.currentLevel ?? 'your level';
+    final reasoning = response.validationReasoning;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                reasoning != null 
+                    ? '✓ $currentLevel confirmed: $reasoning'
+                    : '✓ Your writing matches $currentLevel level!',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.blueGrey,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  // Handle level change suggestion from error check (UI Logic)
   Future<void> handleLevelChangeSuggestion(ErrorCheckResponse response) async {
     if (response.levelChanged == true &&
         response.currentLevel != null &&
@@ -238,11 +270,6 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
               SnackBar(
                 content: Text('Level updated to ${response.suggestedLevel}!'),
                 backgroundColor: Colors.green,
-                action: SnackBarAction(
-                  label: 'Great!',
-                  textColor: Colors.white,
-                  onPressed: () {},
-                ),
               ),
             );
           }
@@ -256,223 +283,6 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
             );
           }
         }
-      }
-    }
-  }
-
-  // --- Shared Logic ---
-
-  Future<void> fetchBaseConversationHistory(String conversationId) async {
-    try {
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      final conversationDetail = await apiService.getConversation(conversationId);
-      if (mounted) {
-        setState(() {
-          messages = conversationDetail.messages;
-          isLoadingHistory = false;
-        });
-        scrollToBottom();
-      }
-    } catch (e) {
-      debugPrint('🔴 Failed to fetch history: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load history: ${e.toString()}')),
-        );
-        setState(() {
-          isLoadingHistory = false;
-        });
-      }
-    }
-  }
-
-  void sendBaseMessage({
-  required String message,
-  required Stream<Map<String, dynamic>> Function(String msg) sendApiCall, 
-  String Function(String status)? statusMessageBuilder,
-  void Function(List<dynamic> toolCalls)? onToolCalls,
-  bool enableAutoErrorCheckOnExit = false,
-}) {
-  // Enable auto error check on exit if requested
-  if (enableAutoErrorCheckOnExit) {
-    _enableAutoErrorCheckOnExit = true;
-  }
-  if (message.isEmpty || isStreaming) return;
-
-  textController.clear();
-
-  setState(() {
-    messages.add(ChatMessage(role: 'user', content: message));
-    isStreaming = true;
-    currentStreamBuffer = '';
-    loadingStatus = 'Connecting...';
-  });
-
-  scrollToBottom();
-
-  sendApiCall(message).listen(
-    (event) {
-      if (!mounted) return;
-      
-      // Update state without triggering rebuild immediately
-      if (event['type'] == 'status') {
-         final statusContent = event['content'];
-         if (statusMessageBuilder != null) {
-           loadingStatus = statusMessageBuilder(statusContent);
-         } else {
-           loadingStatus = statusContent == 'queued'
-              ? 'Waiting in Queue...'
-              : 'Processing...';
-         }
-         // Status changes are important - update immediately
-         setState(() {});
-      }
-      else if (event['type'] == 'chunk') {
-        loadingStatus = 'Typing...';
-        currentStreamBuffer += event['content'];
-        
-        // Throttle chunk updates: mark that we need an update
-        _hasPendingUpdate = true;
-        _updateThrottleTimer ??= Timer.periodic(_updateThrottleDuration, (_) {
-          if (_hasPendingUpdate && mounted) {
-            _hasPendingUpdate = false;
-            setState(() {});
-            _scheduleScrollToBottom();
-          }
-        });
-      }
-      else if (event['type'] == 'tool_calls') {
-        // Handle navigation tool calls from adaptive chat
-        if (onToolCalls != null) {
-          onToolCalls(event['content'] as List<dynamic>);
-        }
-      }
-
-    },
-    onError: (e) {
-      _cancelThrottleTimer();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
-      setState(() => isStreaming = false);
-    },
-    onDone: () {
-      _cancelThrottleTimer();
-      if (!mounted) return;
-      setState(() {
-        if (currentStreamBuffer.isNotEmpty) {
-          messages.add(ChatMessage(
-              role: 'assistant', content: currentStreamBuffer));
-        }
-        currentStreamBuffer = '';
-        loadingStatus = '';
-        isStreaming = false;
-      });
-      scrollToBottom();
-    },
-  );
-}
-
-  void _cancelThrottleTimer() {
-    _updateThrottleTimer?.cancel();
-    _updateThrottleTimer = null;
-    _hasPendingUpdate = false;
-  }
-
-  // Debounced scroll to avoid excessive scrolling during streaming
-  Timer? _scrollDebounceTimer;
-  void _scheduleScrollToBottom() {
-    _scrollDebounceTimer?.cancel();
-    _scrollDebounceTimer = Timer(const Duration(milliseconds: 100), () {
-      scrollToBottom();
-    });
-  }
-
-  /// Fire-and-forget error check on exit - only analyzes NEW messages
-  void _triggerExitErrorCheck() {
-    // Get only the messages that haven't been analyzed yet
-    final userMessages = messages.where((m) => m.role == 'user').toList();
-    
-    if (userMessages.length <= _lastAnalyzedMessageCount) return;
-    
-    // Get only new messages (skip already analyzed ones)
-    final newMessages = userMessages.skip(_lastAnalyzedMessageCount).map((m) => m.content).join('\n\n');
-    
-    if (newMessages.isEmpty) return;
-    
-    // The backend will save errors to DB which is all we need
-    try {
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      final request = ErrorCheckRequest(text: newMessages);
-      
-      // fire and forget
-      apiService.checkErrors(request).then((_) {
-      debugPrint('✅ Exit error check completed');
-      }).catchError((e) {
-        debugPrint('🔴 Exit error check failed (non-blocking): $e');
-      });
-      
-      // Update the count so we don't re-analyze if they come back
-      _lastAnalyzedMessageCount = userMessages.length;
-    } catch (e) {
-      // Silent failure - user is leaving anyway
-      debugPrint('🔴 Exit error check setup failed: $e');
-    }
-  }
-
-  Future<void> checkAllMessagesCommon() async {
-    setState(() => isCheckingErrors = true);
-
-    final apiService = Provider.of<ApiService>(context, listen: false);
-    final userMessages = messages.where((m) => m.role == 'user').map((m) => m.content).join('\n\n');
-
-    if (userMessages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No messages to check yet!')),
-      );
-      setState(() => isCheckingErrors = false);
-      return;
-    }
-
-    try {
-      final request = ErrorCheckRequest(text: userMessages);
-      final response = await apiService.checkErrors(request);
-
-      if (mounted) {
-        if (response.errorCount == 0) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No errors found. Great job!'),
-              backgroundColor: Colors.blue,
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${response.errorCount} errors found and saved to your history.'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-        
-        // Update the analyzed count so we don't re-analyze on exit
-        _lastAnalyzedMessageCount = messages.where((m) => m.role == 'user').length;
-
-        await handleLevelChangeSuggestion(response);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error checking messages: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => isCheckingErrors = false);
       }
     }
   }
@@ -513,24 +323,24 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
         children: [
           if (headerWidget != null) headerWidget,
           Expanded(
-            child: isLoadingHistory
+            child: controller.isLoadingHistory
                 ? const Center(child: CircularProgressIndicator())
                 : ListView.builder(
-                    controller: scrollController,
+                    controller: controller.scrollController,
                     padding: const EdgeInsets.all(16),
-                    itemCount: messages.length + (isStreaming ? 1 : 0),
+                    itemCount: controller.messages.length + (controller.isStreaming ? 1 : 0),
                     // Performance optimizations
                     addAutomaticKeepAlives: false,
                     addRepaintBoundaries: true,
                     itemBuilder: (context, index) {
-                      if (isStreaming && index == messages.length) {
+                      if (controller.isStreaming && index == controller.messages.length) {
                         return buildMessageBubble(
                           role: 'assistant',
-                          content: currentStreamBuffer,
+                          content: controller.currentStreamBuffer,
                           isStreaming: true,
                         );
                       }
-                      final msg = messages[index];
+                      final msg = controller.messages[index];
                       return buildMessageBubble(role: msg.role, content: msg.content);
                     },
                   ),
@@ -546,20 +356,20 @@ abstract class BaseChatScreenState<T extends BaseChatScreen> extends State<T> wi
       role: role, 
       content: content, 
       isStreaming: isStreaming,
-      loadingStatus: loadingStatus,
+      loadingStatus: controller.loadingStatus,
     );
   }
 
   Widget buildInputArea() {
     return ChatInputArea(
-      controller: textController,
-      isListening: isListening,
-      isStreaming: isStreaming,
-      sttAvailable: sttAvailable,
-      isSttSupported: isSttSupported,
+      controller: controller.textController,
+      isListening: controller.isListening,
+      isStreaming: controller.isStreaming,
+      sttAvailable: controller.sttAvailable,
+      isSttSupported: controller.isSttSupported,
       micAnimation: micAnimation,
       hintText: getInputHint(),
-      onMicPressed: isListening ? stopListening : startListening,
+      onMicPressed: controller.isListening ? controller.stopListening : controller.startListening,
       onSendPressed: sendMessage,
     );
   }
